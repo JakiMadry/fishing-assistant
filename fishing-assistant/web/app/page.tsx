@@ -33,19 +33,36 @@ interface ConditionsData {
   };
 }
 
+function getDayLabels(): { label: string; short: string; day: number }[] {
+  const days = ["Niedz", "Pon", "Wt", "Sr", "Czw", "Pt", "Sob"];
+  const result = [];
+  for (let i = 0; i <= 4; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    const dayName = days[d.getDay()];
+    const dateStr = `${d.getDate()}.${String(d.getMonth() + 1).padStart(2, "0")}`;
+    if (i === 0) result.push({ label: "Dzis", short: dateStr, day: 0 });
+    else if (i === 1) result.push({ label: "Jutro", short: dateStr, day: 1 });
+    else result.push({ label: dayName, short: dateStr, day: i });
+  }
+  return result;
+}
+
 export default function ConditionsPage() {
   const [data, setData] = useState<ConditionsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [needsLocation, setNeedsLocation] = useState(false);
   const [locationName, setLocationName] = useState<string | null>(null);
+  const [selectedDay, setSelectedDay] = useState(0);
+  const [userLoc, setUserLoc] = useState<{ lat: number; lon: number } | null>(null);
 
-  const fetchConditions = useCallback(async (lat: number, lon: number) => {
+  const fetchConditions = useCallback(async (lat: number, lon: number, day = 0) => {
     setLoading(true);
     setError(null);
     setNeedsLocation(false);
     try {
-      const res = await api.get(ENDPOINTS.conditions, { params: { lat, lon } });
+      const res = await api.get(ENDPOINTS.conditions, { params: { lat, lon, day } });
       setData(res.data);
     } catch {
       setError("Nie mozna pobrac warunkow. Sprawdz czy backend dziala.");
@@ -58,8 +75,9 @@ export default function ConditionsPage() {
     setLoading(true);
     const loc = await getUserLocation();
     if (loc) {
+      setUserLoc(loc);
       setLocationName("Twoja lokalizacja");
-      fetchConditions(loc.lat, loc.lon);
+      fetchConditions(loc.lat, loc.lon, 0);
     } else {
       setLoading(false);
       setNeedsLocation(true);
@@ -70,12 +88,19 @@ export default function ConditionsPage() {
     tryGeoLocation();
   }, [tryGeoLocation]);
 
+  function handleDayChange(day: number) {
+    setSelectedDay(day);
+    if (userLoc) fetchConditions(userLoc.lat, userLoc.lon, day);
+  }
+
   if (needsLocation) {
     return (
       <LocationPicker
         onSelect={(loc) => {
+          setUserLoc({ lat: loc.lat, lon: loc.lon });
           setLocationName(loc.name);
-          fetchConditions(loc.lat, loc.lon);
+          setSelectedDay(0);
+          fetchConditions(loc.lat, loc.lon, 0);
         }}
         onRetryGeo={tryGeoLocation}
       />
@@ -133,6 +158,24 @@ export default function ConditionsPage() {
           </div>
         )}
 
+        {/* Day tabs */}
+        <div className="flex gap-1.5 overflow-x-auto pb-1">
+          {getDayLabels().map((d) => (
+            <button
+              key={d.day}
+              onClick={() => handleDayChange(d.day)}
+              className={`shrink-0 px-3.5 py-2 rounded-xl text-sm font-medium transition-all ${
+                selectedDay === d.day
+                  ? "bg-primary text-text-main shadow-lg shadow-primary-glow"
+                  : "bg-surface-light text-text-secondary hover:bg-surface-hover"
+              }`}
+            >
+              <span className="block">{d.label}</span>
+              <span className="block text-[10px] opacity-70">{d.short}</span>
+            </button>
+          ))}
+        </div>
+
         {/* Hero score card */}
         <div className="glass-card p-6 lg:p-8 glow-green relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2" />
@@ -159,7 +202,9 @@ export default function ConditionsPage() {
               </div>
             </div>
             <div className="text-center sm:text-left">
-              <p className="text-text-muted text-sm uppercase tracking-wider mb-1">Szanse na branie dzis</p>
+              <p className="text-text-muted text-sm uppercase tracking-wider mb-1">
+                Szanse na branie {selectedDay === 0 ? "dzis" : selectedDay === 1 ? "jutro" : getDayLabels()[selectedDay]?.label}
+              </p>
               <h2 className="text-text-main text-2xl font-bold mb-2">
                 {fishing.overall >= 80 ? "Doskonale warunki!" :
                  fishing.overall >= 65 ? "Bardzo dobre warunki" :

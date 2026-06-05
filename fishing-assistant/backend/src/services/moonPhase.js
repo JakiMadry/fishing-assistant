@@ -1,7 +1,7 @@
 const SunCalc = require('suncalc');
 
-function getMoonData(lat, lon) {
-  const now = new Date();
+function getMoonData(lat, lon, date = null) {
+  const now = date ? new Date(date) : new Date();
   const moonIllum = SunCalc.getMoonIllumination(now);
   const moonPos = SunCalc.getMoonPosition(now, lat, lon);
   const moonTimes = SunCalc.getMoonTimes(now, lat, lon);
