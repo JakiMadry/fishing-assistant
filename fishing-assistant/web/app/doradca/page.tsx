@@ -29,12 +29,12 @@ interface AdviceResult {
 }
 
 const QUICK_QUERIES = [
-  { q: "Wisla, sandacz, czerwiec", icon: "🐟" },
+  { q: "Wisla, sandacz, lipiec", icon: "🐟" },
   { q: "Jezioro Sniardwy, szczupak, wrzesien", icon: "🦈" },
-  { q: "Odra, sum, lipiec", icon: "🐋" },
-  { q: "Bug, brzana, maj", icon: "🐠" },
+  { q: "Odra, sum, sierpien", icon: "🐋" },
+  { q: "Dunajec, pstrag, czerwiec", icon: "🐠" },
   { q: "Zbiornik, karp, sierpien", icon: "🎏" },
-  { q: "Dunajec, pstrag, kwiecien", icon: "🐡" },
+  { q: "Jezioro, okón, lipiec", icon: "🐡" },
 ];
 
 export default function AdvisorPage() {
