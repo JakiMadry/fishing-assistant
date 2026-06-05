@@ -171,6 +171,59 @@ export default function ConditionsPage() {
           </div>
         </div>
 
+        {/* Top species - right after score */}
+        <div className="glass-card p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-xl">🏆</span>
+            <h3 className="text-text-main font-bold">Najlepsze gatunki dzis</h3>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {fishing.topSpecies.map((s, i) => (
+              <div
+                key={s.species}
+                className={`relative bg-surface-light rounded-xl p-4 border transition-all duration-200 hover:border-glass-border ${
+                  i === 0 ? "border-accent/30 glow-accent" : "border-transparent"
+                }`}
+              >
+                {i === 0 && (
+                  <div className="absolute -top-2 -right-2 bg-accent text-black text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    TOP
+                  </div>
+                )}
+                <div className="flex items-center gap-3 mb-3">
+                  <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold ${
+                      i === 0 ? "bg-accent/20 text-accent" : "bg-primary/20 text-primary-light"
+                    }`}
+                  >
+                    #{i + 1}
+                  </div>
+                  <div>
+                    <p className="text-text-main font-bold">
+                      {s.species.charAt(0).toUpperCase() + s.species.slice(1)}
+                    </p>
+                    <p className="text-text-muted text-xs">{s.rating}</p>
+                  </div>
+                </div>
+                {/* Mini score bar */}
+                <div className="mb-2">
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-text-muted">Ocena</span>
+                    <span className="font-bold" style={{ color: scoreColor(s.overall) }}>{s.overall}/100</span>
+                  </div>
+                  <div className="h-1.5 bg-border-custom rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-1000"
+                      style={{ width: `${s.overall}%`, backgroundColor: scoreColor(s.overall) }}
+                    />
+                  </div>
+                </div>
+                <p className="text-text-secondary text-xs leading-relaxed">{s.tip}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Weather + Moon grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Weather */}
@@ -231,59 +284,6 @@ export default function ConditionsPage() {
                 ))}
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Top species */}
-        <div className="glass-card p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-xl">🏆</span>
-            <h3 className="text-text-main font-bold">Najlepsze gatunki dzis</h3>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {fishing.topSpecies.map((s, i) => (
-              <div
-                key={s.species}
-                className={`relative bg-surface-light rounded-xl p-4 border transition-all duration-200 hover:border-glass-border ${
-                  i === 0 ? "border-accent/30 glow-accent" : "border-transparent"
-                }`}
-              >
-                {i === 0 && (
-                  <div className="absolute -top-2 -right-2 bg-accent text-black text-[10px] font-bold px-2 py-0.5 rounded-full">
-                    TOP
-                  </div>
-                )}
-                <div className="flex items-center gap-3 mb-3">
-                  <div
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold ${
-                      i === 0 ? "bg-accent/20 text-accent" : "bg-primary/20 text-primary-light"
-                    }`}
-                  >
-                    #{i + 1}
-                  </div>
-                  <div>
-                    <p className="text-text-main font-bold">
-                      {s.species.charAt(0).toUpperCase() + s.species.slice(1)}
-                    </p>
-                    <p className="text-text-muted text-xs">{s.rating}</p>
-                  </div>
-                </div>
-                {/* Mini score bar */}
-                <div className="mb-2">
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-text-muted">Ocena</span>
-                    <span className="font-bold" style={{ color: scoreColor(s.overall) }}>{s.overall}/100</span>
-                  </div>
-                  <div className="h-1.5 bg-border-custom rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-1000"
-                      style={{ width: `${s.overall}%`, backgroundColor: scoreColor(s.overall) }}
-                    />
-                  </div>
-                </div>
-                <p className="text-text-secondary text-xs leading-relaxed">{s.tip}</p>
-              </div>
-            ))}
           </div>
         </div>
 

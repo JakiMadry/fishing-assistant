@@ -181,10 +181,67 @@ function getRating(score) {
 }
 
 function getSpeciesTip(species, weather, score) {
-  if (score >= 70) return `Świetny dzień na ${species}a! Wyjdź na wodę.`;
-  if (score >= 50) return `Przyzwoite warunki na ${species}a. Warto spróbować.`;
-  if (weather.pressureTrend === 'malejące') return `Spadające ciśnienie – ${species} może słabo brać.`;
-  return `Dziś nie najlepszy dzień na ${species}a. Sprawdź jutro.`;
+  const profile = SPECIES_PROFILES[species] || {};
+  const temp = weather.temperature;
+  const wind = weather.windSpeed;
+  const pressure = weather.pressureTrend;
+
+  const tips = {
+    sandacz: () => {
+      if (score >= 70 && weather.cloudiness > 60) return 'Pochmurno i spokojnie — sandacz ruszy na żer przy dnie.';
+      if (score >= 70) return 'Stabilne ciśnienie sprzyja sandaczowi. Łów przy dnie o zmierzchu.';
+      if (temp > 20) return 'Ciepło — sandacz zejdzie głębiej. Szukaj go przy dnie na głębszych stanowiskach.';
+      if (pressure === 'malejące') return 'Spadające ciśnienie — sandacz będzie mało aktywny, spróbuj wolnej gry.';
+      return 'Przeciętny dzień. Stawiaj na gumę przy dnie w okolicy głęboczków.';
+    },
+    szczupak: () => {
+      if (score >= 70 && temp < 15) return 'Chłodno i ciśnienie rośnie — szczupak poluje agresywnie!';
+      if (score >= 70) return 'Szczupak dziś aktywny. Spróbuj dużych przynęt rano przy trzcinach.';
+      if (temp > 20) return 'Za ciepło na szczupaka. Szukaj go w cieniach i przy natlenionych miejscach.';
+      if (wind > 20) return 'Wiatr miesza wodę — spróbuj spinningu przy nawietrznym brzegu.';
+      return 'Średnie warunki. Postaw na wolniejsze prowadzenie i mniejsze przynęty.';
+    },
+    okoń: () => {
+      if (score >= 70) return 'Okoń dziś bardzo aktywny. Drobne gumki i mikrojigi powinny zadziałać.';
+      if (temp > 18) return 'Ciepło — ławice okonia żerują płyciej. Szukaj przy kamieniach i pomostach.';
+      if (wind > 25) return 'Lekki ruch wody pobudza okonie. Dropshot przy dnie będzie skuteczny.';
+      return 'Okoń łowi się cały dzień. Próbuj różnych głębokości małymi przynętami.';
+    },
+    karp: () => {
+      if (score >= 70 && temp >= 18) return 'Ciepło i stabilnie — karp aktywnie żeruje. Method feeder z kukurydzą!';
+      if (score >= 70) return 'Dobre warunki na karpia. Wieczór z groundbaitem powinien dać efekt.';
+      if (temp < 12) return 'Za chłodno na karpia. Jeśli łowisz, postaw na drobne zanęty i cierpliwość.';
+      if (pressure === 'malejące') return 'Spadające ciśnienie — karp będzie ostrożny. Mniejsze porcje zanęty.';
+      return 'Przeciętne warunki. Łów wieczorem na słodkie przynęty blisko roślinności.';
+    },
+    sum: () => {
+      if (score >= 70 && temp >= 20) return 'Ciepła noc — sum ruszy na żer. Duża ryba na dnie lub pelagicznie!';
+      if (score >= 70) return 'Warunki sprzyjają sumowi. Łów nocą z mocnym zestawem przy dnie.';
+      if (temp < 15) return 'Za zimno na suma — aktywność minimalna. Poczekaj na cieplejsze noce.';
+      return 'Średni dzień na suma. Jeśli próbujesz, łów po zmroku na naturalne przynęty.';
+    },
+    leszcz: () => {
+      if (score >= 70) return 'Stabilne ciśnienie — leszcz żeruje rano. Zanęta z kaszą i robaki.';
+      if (temp > 20) return 'Ciepło — leszcz aktywny przy dnie na głębszych stanowiskach.';
+      if (wind > 20) return 'Wiatr utrudnia spławik. Spróbuj gruntówki z wędką feederową.';
+      return 'Leszcz łowi się najlepiej rano. Zanęta z oparem i cierpliwość.';
+    },
+    brzana: () => {
+      if (score >= 70) return 'Rwący nurt i rosnące ciśnienie — brzana bierze dziś świetnie!';
+      if (temp > 20) return 'Ciepło — brzana aktywna w nurcie. Jętka lub larwa na dnie.';
+      if (pressure === 'rosnące') return 'Ciśnienie rośnie — brzana chętnie bierze w prądzie. Spróbuj w nurcie.';
+      return 'Szukaj brzany w wartkim nurcie. Naturalne przynęty przy dnie.';
+    },
+    troć: () => {
+      if (score >= 70) return 'Chłodno i pochmurno — troć dziś aktywna. Spinning z obrotówką!';
+      if (temp > 16) return 'Ciepławo na troć. Łów wczesnym rankiem zanim woda się nagrzeje.';
+      if (weather.cloudiness > 70) return 'Zachmurzenie sprzyja troci. Spróbuj wobler lub obrotówkę w nurcie.';
+      return 'Przeciętnie na troć. Szukaj jej w chłodniejszych, natlenionych odcinkach rzeki.';
+    },
+  };
+
+  const fn = tips[species];
+  return fn ? fn() : `Ocena: ${score}/100. Sprawdź warunki szczegółowe.`;
 }
 
 function getGeneralConditions(weather) {
