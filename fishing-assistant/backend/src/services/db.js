@@ -110,6 +110,11 @@ const spotsDb = {
 
   getCatches(spotId) {
     return getDb().prepare('SELECT * FROM spot_catches WHERE spotId = ? ORDER BY catchDate DESC').all(spotId);
+  },
+
+  delete(id) {
+    getDb().prepare('DELETE FROM spot_catches WHERE spotId = ?').run(id);
+    return getDb().prepare('DELETE FROM user_spots WHERE id = ?').run(id);
   }
 };
 

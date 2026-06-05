@@ -134,4 +134,38 @@ router.get('/user/:id/catches', (req, res) => {
   }
 });
 
+/**
+ * POST /api/spots/seed
+ * Dodaje przykładowe łowiska (jednorazowo)
+ */
+router.post('/seed', (req, res) => {
+  try {
+    const existing = spotsDb.getAll();
+    if (existing.length > 0) {
+      return res.json({ message: 'Baza już zawiera łowiska', count: existing.length });
+    }
+    require('../seed');
+    const spots = spotsDb.getAll();
+    res.json({ message: 'Dodano łowiska', count: spots.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * DELETE /api/spots/user/:id
+ * Usuwa łowisko i powiązane połowy
+ */
+router.delete('/user/:id', (req, res) => {
+  try {
+    const result = spotsDb.delete(parseInt(req.params.id));
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Łowisko nie znalezione' });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

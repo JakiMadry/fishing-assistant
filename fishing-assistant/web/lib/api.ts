@@ -15,6 +15,7 @@ export const ENDPOINTS = {
   spotsEnrich: '/spots/enrich',
   spotsUser: '/spots/user',
   advisorBait: '/advisor/bait',
+  spotsSeed: '/spots/seed',
 };
 
 export default api;

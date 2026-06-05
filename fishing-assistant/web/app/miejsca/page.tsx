@@ -91,12 +91,27 @@ export default function SpotsPage() {
             <span>←</span>
             <span className="text-sm font-medium">Wroc</span>
           </button>
-          <button
-            onClick={() => setAddCatchVisible(true)}
-            className="bg-primary hover:bg-primary-light text-text-main font-bold px-4 py-2 rounded-xl text-sm transition-all hover:shadow-lg hover:shadow-primary-glow"
-          >
-            + Dodaj polow
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={async () => {
+                if (!confirm('Na pewno usunac to lowisko?')) return;
+                try {
+                  await api.delete(`${ENDPOINTS.spotsUser}/${selectedSpot.id}`);
+                  setSpots((prev) => prev.filter((s) => s.id !== selectedSpot.id));
+                  setSelectedSpot(null);
+                } catch {}
+              }}
+              className="border border-error/30 text-error hover:bg-error/10 px-4 py-2 rounded-xl text-sm transition-colors"
+            >
+              Usun
+            </button>
+            <button
+              onClick={() => setAddCatchVisible(true)}
+              className="bg-primary hover:bg-primary-light text-text-main font-bold px-4 py-2 rounded-xl text-sm transition-all hover:shadow-lg hover:shadow-primary-glow"
+            >
+              + Dodaj polow
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 lg:p-6 max-w-4xl mx-auto w-full space-y-4">
