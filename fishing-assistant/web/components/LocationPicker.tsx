@@ -23,15 +23,25 @@ interface LocationPickerProps {
 }
 
 export default function LocationPicker({ onSelect, onRetryGeo }: LocationPickerProps) {
-  const [customLat, setCustomLat] = useState("");
-  const [customLon, setCustomLon] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searching, setSearching] = useState(false);
 
-  function handleCustomSubmit() {
-    const lat = parseFloat(customLat);
-    const lon = parseFloat(customLon);
-    if (!isNaN(lat) && !isNaN(lon)) {
-      onSelect({ lat, lon, name: `${lat.toFixed(2)}, ${lon.toFixed(2)}` });
-    }
+  async function handleSearch() {
+    if (!searchQuery.trim()) return;
+    setSearching(true);
+    try {
+      const params = new URLSearchParams({ q: searchQuery, format: "json", limit: "1", addressdetails: "1" });
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
+        headers: { "User-Agent": "FishingAssistant/1.0" },
+      });
+      if (!res.ok) { setSearching(false); return; }
+      const data = await res.json();
+      if (data.length > 0) {
+        const r = data[0];
+        onSelect({ lat: parseFloat(r.lat), lon: parseFloat(r.lon), name: r.display_name.split(",")[0] });
+      }
+    } catch {}
+    setSearching(false);
   }
 
   return (
@@ -80,38 +90,31 @@ export default function LocationPicker({ onSelect, onRetryGeo }: LocationPickerP
           ))}
         </div>
 
-        {/* Custom coords */}
+        {/* Search by name */}
         <div className="relative">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-border-custom" />
           </div>
           <div className="relative flex justify-center">
-            <span className="bg-bg px-3 text-text-muted text-xs">lub podaj wspolrzedne</span>
+            <span className="bg-bg px-3 text-text-muted text-xs">lub wpisz nazwe</span>
           </div>
         </div>
 
         <div className="flex gap-2">
           <input
-            type="number"
-            step="any"
-            value={customLat}
-            onChange={(e) => setCustomLat(e.target.value)}
-            placeholder="Lat"
-            className="flex-1 glass-card px-3 py-2.5 text-text-main placeholder:text-text-muted text-sm min-w-0"
-          />
-          <input
-            type="number"
-            step="any"
-            value={customLon}
-            onChange={(e) => setCustomLon(e.target.value)}
-            placeholder="Lon"
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+            placeholder="np. Kartuzy, Sniardwy..."
             className="flex-1 glass-card px-3 py-2.5 text-text-main placeholder:text-text-muted text-sm min-w-0"
           />
           <button
-            onClick={handleCustomSubmit}
-            className="bg-primary hover:bg-primary-light text-text-main font-bold px-4 rounded-xl transition-all shrink-0"
+            onClick={handleSearch}
+            disabled={searching}
+            className="bg-primary hover:bg-primary-light text-text-main font-bold px-4 rounded-xl transition-all shrink-0 disabled:opacity-50"
           >
-            OK
+            {searching ? "..." : "OK"}
           </button>
         </div>
       </div>
