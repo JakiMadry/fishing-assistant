@@ -1,0 +1,185 @@
+@import "tailwindcss";
+
+:root {
+  /* Modern dark slate palette */
+  --bg: #09090b;
+  --bg-gradient: linear-gradient(160deg, #09090b 0%, #0c0e14 40%, #0a0c12 100%);
+  --surface: rgba(20, 22, 30, 0.7);
+  --surface-solid: #14161e;
+  --surface-light: rgba(30, 33, 45, 0.6);
+  --surface-hover: rgba(40, 44, 60, 0.6);
+  --glass: rgba(20, 22, 30, 0.5);
+  --glass-border: rgba(99, 140, 255, 0.1);
+  --border: rgba(45, 50, 70, 0.5);
+
+  /* Blue primary — modern, techy */
+  --primary: #3b72f2;
+  --primary-light: #5b8ef5;
+  --primary-glow: rgba(59, 114, 242, 0.15);
+
+  /* Warm amber accent */
+  --accent: #f0a030;
+  --accent-glow: rgba(240, 160, 48, 0.1);
+
+  /* Water / fish markers */
+  --water: #38bdf8;
+  --water-light: #7dd3fc;
+
+  /* Text — neutral white/gray, NO green tint */
+  --text: #f0f0f5;
+  --text-secondary: #9ca3b0;
+  --text-muted: #5c6370;
+
+  /* Status */
+  --error: #ef4444;
+  --success: #22c55e;
+  --warning: #f59e0b;
+
+  /* Score */
+  --score-excellent: #22c55e;
+  --score-good: #84cc16;
+  --score-average: #f59e0b;
+  --score-poor: #ef4444;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-solid: var(--surface-solid);
+  --color-surface-light: var(--surface-light);
+  --color-surface-hover: var(--surface-hover);
+  --color-glass: var(--glass);
+  --color-glass-border: var(--glass-border);
+  --color-border-custom: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-light: var(--primary-light);
+  --color-primary-glow: var(--primary-glow);
+  --color-accent: var(--accent);
+  --color-accent-glow: var(--accent-glow);
+  --color-water: var(--water);
+  --color-water-light: var(--water-light);
+  --color-text-main: var(--text);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-error: var(--error);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg);
+  background-image: var(--bg-gradient);
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  margin: 0;
+  min-height: 100vh;
+}
+
+/* Glass card base */
+.glass-card {
+  background: var(--surface);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+}
+
+.glass-card-hover {
+  transition: all 0.2s ease;
+}
+.glass-card-hover:hover {
+  background: var(--surface-hover);
+  border-color: rgba(99, 140, 255, 0.2);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+}
+
+/* Glow effects */
+.glow-green {
+  box-shadow: 0 0 24px var(--primary-glow), 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+.glow-accent {
+  box-shadow: 0 0 24px var(--accent-glow), 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+/* Score ring animation */
+@keyframes score-fill {
+  from { stroke-dashoffset: 283; }
+}
+
+.score-ring {
+  animation: score-fill 1.5s ease-out forwards;
+}
+
+/* Leaflet overrides for dark theme */
+.leaflet-container {
+  background: #0c0e14;
+}
+
+.leaflet-popup-content-wrapper {
+  background: var(--surface-solid) !important;
+  color: var(--text) !important;
+  border-radius: 12px !important;
+  border: 1px solid var(--glass-border) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+}
+
+.leaflet-popup-tip {
+  background: var(--surface-solid) !important;
+}
+
+.leaflet-popup-close-button {
+  color: var(--text-muted) !important;
+}
+
+/* Dark map tiles filter */
+.leaflet-tile-pane {
+  filter: brightness(0.7) contrast(1.1) saturate(0.8);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Input styling */
+input:focus, textarea:focus {
+  outline: none;
+  border-color: var(--primary-light) !important;
+  box-shadow: 0 0 0 3px var(--primary-glow) !important;
+}
+
+/* Smooth page transitions */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.35s ease-out;
+}
+
+/* Pulse dot */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.8); }
+}
+
+.pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
