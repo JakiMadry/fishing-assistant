@@ -26,8 +26,8 @@ router.get('/nearby', async (req, res) => {
       total: osmSpots.length + userSpots.length
     });
   } catch (err) {
-    console.error('spots/nearby error:', err.message);
-    res.status(500).json({ error: 'Błąd pobierania łowisk', detail: err.message });
+    console.error('spots/nearby error:', err.message || err, err.response?.status, err.response?.data?.toString?.()?.slice(0, 200));
+    res.status(500).json({ error: 'Błąd pobierania łowisk', detail: err.message || String(err) });
   }
 });
 

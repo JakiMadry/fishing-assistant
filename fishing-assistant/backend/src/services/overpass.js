@@ -7,18 +7,9 @@ const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
  * Używa OSM Overpass API – zawiera WSZYSTKIE wody w Polsce i na świecie.
  */
 async function getWaterBodiesNearby(lat, lon, radiusMeters = 15000) {
-  const query = `
-    [out:json][timeout:25];
-    (
-      way["natural"="water"](around:${radiusMeters},${lat},${lon});
-      relation["natural"="water"](around:${radiusMeters},${lat},${lon});
-      way["waterway"~"river|stream|canal"](around:${radiusMeters},${lat},${lon});
-      relation["waterway"~"river|stream"](around:${radiusMeters},${lat},${lon});
-      way["leisure"="fishing"](around:${radiusMeters},${lat},${lon});
-      node["leisure"="fishing"](around:${radiusMeters},${lat},${lon});
-    );
-    out center tags;
-  `;
+  // Limit radius to avoid Overpass timeouts on low-memory servers
+  const r = Math.min(radiusMeters, 20000);
+  const query = `[out:json][timeout:20];(way["natural"="water"](around:${r},${lat},${lon});way["waterway"~"river|stream|canal"](around:${r},${lat},${lon});way["leisure"="fishing"](around:${r},${lat},${lon});node["leisure"="fishing"](around:${r},${lat},${lon}););out center tags;`;
 
   const response = await axios.post(OVERPASS_URL, `data=${encodeURIComponent(query)}`, {
     headers: {

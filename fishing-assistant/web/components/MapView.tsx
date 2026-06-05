@@ -201,7 +201,7 @@ export default function MapView() {
       </div>
 
       {/* Map */}
-      <MapContainer center={center} zoom={11} className="flex-1 w-full" style={{ height: "calc(100vh - 64px)", minHeight: "400px" }}>
+      <MapContainer center={center} zoom={11} className="flex-1 w-full map-container">
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org">OSM</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
