@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import api, { ENDPOINTS } from "@/lib/api";
 
 interface UserSpot {
@@ -27,6 +27,23 @@ interface Catch {
   note?: string;
 }
 
+const TYPE_ICONS: Record<string, string> = {
+  jezioro: "🏞️",
+  rzeka: "🌊",
+  staw: "💧",
+  zbiornik: "🌀",
+  "łowisko komercyjne": "🎣",
+  kanał: "🚢",
+  strumień: "🏔️",
+};
+
+function getIcon(type: string) {
+  for (const [key, icon] of Object.entries(TYPE_ICONS)) {
+    if (type.includes(key)) return icon;
+  }
+  return "📍";
+}
+
 export default function SpotsPage() {
   const [spots, setSpots] = useState<UserSpot[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,6 +53,12 @@ export default function SpotsPage() {
   const [enrichedSpot, setEnrichedSpot] = useState<any | null>(null);
   const [enrichLoading, setEnrichLoading] = useState(false);
   const [addCatchVisible, setAddCatchVisible] = useState(false);
+
+  // Search
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [filterText, setFilterText] = useState("");
 
   useEffect(() => { loadSpots(); }, []);
 
@@ -47,6 +70,43 @@ export default function SpotsPage() {
     } catch { setSpots([]); }
     finally { setLoading(false); }
   }
+
+  async function handleSearch() {
+    if (!searchQuery.trim()) return;
+    setSearchLoading(true);
+    try {
+      const res = await api.get(ENDPOINTS.spotsSearch, { params: { q: searchQuery } });
+      setSearchResults(res.data.results || []);
+    } catch { setSearchResults([]); }
+    setSearchLoading(false);
+  }
+
+  async function addFromSearch(result: any) {
+    try {
+      const res = await api.post(ENDPOINTS.spotsUser, {
+        name: result.name,
+        lat: result.lat,
+        lng: result.lng,
+        type: result.type || "zbiornik wodny",
+        description: result.fullName || "",
+        isPublic: true,
+      });
+      setSpots((prev) => [...prev, res.data.spot]);
+      setSearchResults([]);
+      setSearchQuery("");
+    } catch {}
+  }
+
+  const filteredSpots = useMemo(() => {
+    if (!filterText.trim()) return spots;
+    const q = filterText.toLowerCase();
+    return spots.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.type?.toLowerCase().includes(q) ||
+        s.description?.toLowerCase().includes(q)
+    );
+  }, [spots, filterText]);
 
   async function openSpot(spot: UserSpot) {
     setSelectedSpot(spot);
@@ -207,55 +267,117 @@ export default function SpotsPage() {
 
   // Spots list
   return (
-    <div className="flex-1 overflow-y-auto animate-fade-in">
-      <div className="max-w-4xl mx-auto w-full p-4 lg:p-6">
-        {/* Header */}
-        <div className="glass-card p-5 mb-6 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-48 h-48 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2" />
-          <div className="relative flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-glass-border flex items-center justify-center">
+    <div className="flex-1 flex flex-col animate-fade-in overflow-hidden">
+      <div className="max-w-4xl mx-auto w-full p-4 lg:p-6 flex flex-col flex-1 overflow-hidden">
+        {/* Header + Search */}
+        <div className="shrink-0 mb-4">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-glass-border flex items-center justify-center shrink-0">
               <span className="text-xl">📍</span>
             </div>
             <div>
-              <h1 className="text-text-main text-xl font-bold">Lowiska spolecznosci</h1>
-              <p className="text-text-muted text-sm mt-0.5">Kliknij PPM na mapie, zeby dodac nowe lowisko</p>
+              <h1 className="text-text-main text-xl font-bold">Lowiska</h1>
+              <p className="text-text-muted text-sm">{spots.length} zapisanych lowisk</p>
             </div>
           </div>
+
+          {/* OSM Search */}
+          <div className="glass-card p-4 mb-3">
+            <p className="text-text-secondary text-xs mb-2 font-medium uppercase tracking-wider">Wyszukaj i dodaj lowisko</p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                placeholder="Szukaj jeziora, rzeki..."
+                className="flex-1 bg-surface-light border border-border-custom rounded-xl px-4 py-2.5 text-text-main text-sm placeholder:text-text-muted"
+              />
+              <button
+                onClick={handleSearch}
+                disabled={searchLoading}
+                className="bg-primary hover:bg-primary-light text-text-main font-medium px-5 py-2.5 rounded-xl text-sm transition-all disabled:opacity-50 shrink-0"
+              >
+                {searchLoading ? "..." : "Szukaj"}
+              </button>
+            </div>
+
+            {/* Search results */}
+            {searchResults.length > 0 && (
+              <div className="mt-3 space-y-1.5 max-h-48 overflow-y-auto">
+                {searchResults.map((r, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between bg-surface-light/50 rounded-lg px-3 py-2 border border-border-custom"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-text-main text-sm font-medium truncate">{r.name}</p>
+                      <p className="text-text-muted text-xs truncate">{r.fullName}</p>
+                    </div>
+                    <button
+                      onClick={() => addFromSearch(r)}
+                      className="ml-3 text-primary hover:text-primary-light text-sm font-bold shrink-0 px-3 py-1 rounded-lg hover:bg-primary/10 transition-colors"
+                    >
+                      + Dodaj
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Filter existing spots */}
+          {spots.length > 6 && (
+            <input
+              type="text"
+              value={filterText}
+              onChange={(e) => setFilterText(e.target.value)}
+              placeholder="Filtruj swoje lowiska..."
+              className="w-full bg-surface-light border border-border-custom rounded-xl px-4 py-2.5 text-text-main text-sm placeholder:text-text-muted mb-3"
+            />
+          )}
         </div>
 
-        {spots.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-4">
-            <div className="w-20 h-20 rounded-2xl bg-surface-light border border-glass-border flex items-center justify-center">
-              <span className="text-4xl">📍</span>
+        {/* Spots list - scrollable */}
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {filteredSpots.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-3">
+              <span className="text-4xl">🎣</span>
+              <h2 className="text-text-main text-lg font-bold text-center">
+                {spots.length === 0 ? "Brak zapisanych lowisk" : "Brak wynikow"}
+              </h2>
+              <p className="text-text-secondary text-sm text-center max-w-sm">
+                {spots.length === 0
+                  ? "Uzyj wyszukiwarki powyzej, zeby znalezc i dodac lowisko."
+                  : "Zmien fraze filtrowania."}
+              </p>
             </div>
-            <h2 className="text-text-main text-lg font-bold text-center">Brak zapisanych lowisk</h2>
-            <p className="text-text-secondary text-sm text-center max-w-sm">
-              Otworz Mape i kliknij prawym przyciskiem myszy w dowolnym miejscu, zeby dodac swoje lowisko.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {spots.map((spot) => (
-              <button
-                key={spot.id}
-                onClick={() => openSpot(spot)}
-                className="glass-card glass-card-hover p-4 text-left flex items-center gap-3 group"
-              >
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
-                  <span className="text-lg">🎣</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-text-main font-bold">{spot.name}</p>
-                  <p className="text-accent text-xs mt-0.5">{spot.type}</p>
-                  {spot.description && (
-                    <p className="text-text-secondary text-sm mt-1 line-clamp-1">{spot.description}</p>
-                  )}
-                </div>
-                <span className="text-text-muted text-lg group-hover:text-primary-light transition-colors shrink-0">›</span>
-              </button>
-            ))}
-          </div>
-        )}
+          ) : (
+            <div className="space-y-2 pb-4">
+              {filteredSpots.map((spot) => (
+                <button
+                  key={spot.id}
+                  onClick={() => openSpot(spot)}
+                  className="w-full glass-card glass-card-hover p-3.5 text-left flex items-center gap-3 group"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors text-lg">
+                    {getIcon(spot.type)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-text-main font-bold text-sm truncate">{spot.name}</p>
+                      <span className="text-text-muted text-[10px] bg-surface-light px-2 py-0.5 rounded-full shrink-0">{spot.type}</span>
+                    </div>
+                    {spot.description && (
+                      <p className="text-text-secondary text-xs mt-0.5 line-clamp-1">{spot.description}</p>
+                    )}
+                  </div>
+                  <span className="text-text-muted text-lg group-hover:text-primary-light transition-colors shrink-0">›</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

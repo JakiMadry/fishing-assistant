@@ -36,6 +36,19 @@ cron.schedule('0 6 * * *', async () => {
   // przez Expo Push API jeśli warunki >= 75/100
 });
 
+// Auto-seed spots on startup (idempotent - skips duplicates)
+try {
+  const { spotsDb } = require('./services/db');
+  if (spotsDb.getAll().length === 0) {
+    console.log('[SEED] Baza pusta, seeduję łowiska...');
+    require('./seed');
+    require('./seed-kaszuby');
+    console.log(`[SEED] Gotowe: ${spotsDb.getAll().length} łowisk`);
+  }
+} catch (e) {
+  console.error('[SEED] Błąd:', e.message);
+}
+
 app.listen(PORT, () => {
   console.log(`Fishing Assistant Backend działa na porcie ${PORT}`);
 });

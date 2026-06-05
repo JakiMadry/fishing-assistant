@@ -55,16 +55,11 @@ interface SelectedSpotData extends OsmSpot {
   loading?: boolean;
 }
 
-function MapEvents({ onMoveEnd, onRightClick }: {
+function MapEvents({ onMoveEnd }: {
   onMoveEnd: (center: L.LatLng) => void;
-  onRightClick: (latlng: L.LatLng) => void;
 }) {
   useMapEvents({
     moveend: (e) => onMoveEnd(e.target.getCenter()),
-    contextmenu: (e) => {
-      e.originalEvent.preventDefault();
-      onRightClick(e.latlng);
-    },
   });
   return null;
 }
@@ -86,10 +81,6 @@ export default function MapView() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [flyTarget, setFlyTarget] = useState<[number, number] | null>(null);
   const [center] = useState<[number, number]>([52.23, 21.01]);
-  const [addModal, setAddModal] = useState<{ lat: number; lng: number } | null>(null);
-  const [newName, setNewName] = useState("");
-  const [newDesc, setNewDesc] = useState("");
-  const [saving, setSaving] = useState(false);
   const [spotsCount, setSpotsCount] = useState(0);
   const loadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -159,20 +150,6 @@ export default function MapView() {
     setSearchLoading(false);
   }
 
-  async function saveSpot() {
-    if (!newName.trim() || !addModal) return;
-    setSaving(true);
-    try {
-      const res = await api.post(ENDPOINTS.spotsUser, {
-        name: newName.trim(), description: newDesc.trim(),
-        lat: addModal.lat, lng: addModal.lng, type: "jezioro", isPublic: true,
-      });
-      setUserSpots((prev) => [...prev, res.data.spot]);
-      setAddModal(null); setNewName(""); setNewDesc("");
-    } catch {}
-    setSaving(false);
-  }
-
   const LEGEND = [
     { color: "#38bdf8", label: "Rzeka / strumien" },
     { color: "#a78bfa", label: "Jezioro" },
@@ -223,20 +200,13 @@ export default function MapView() {
         )}
       </div>
 
-      {/* Loading pill - only on initial load */}
-
-      {/* Hint */}
-      <div className="absolute bottom-24 lg:bottom-4 right-3 z-[1000] bg-surface-solid/80 backdrop-blur rounded-lg px-3 py-1.5 border border-glass-border">
-        <span className="text-text-muted text-[10px]">PPM = dodaj lowisko</span>
-      </div>
-
       {/* Map */}
       <MapContainer center={center} zoom={11} className="flex-1 w-full" style={{ height: "calc(100vh - 64px)", minHeight: "400px" }}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org">OSM</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <MapEvents onMoveEnd={handleMoveEnd} onRightClick={(ll) => setAddModal({ lat: ll.lat, lng: ll.lng })} />
+        <MapEvents onMoveEnd={handleMoveEnd} />
         <FlyTo center={flyTarget} />
 
         {osmSpots.map((spot) => (
@@ -325,43 +295,6 @@ export default function MapView() {
         </div>
       )}
 
-      {/* Add spot modal */}
-      {addModal && (
-        <div className="fixed inset-0 z-[2000] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center animate-fade-in">
-          <div className="bg-surface-solid rounded-t-2xl sm:rounded-2xl p-6 w-full max-w-md space-y-4 border border-glass-border shadow-2xl">
-            <div className="flex items-center gap-3 mb-1">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                <span className="text-xl">📍</span>
-              </div>
-              <h3 className="text-text-main text-lg font-bold">Dodaj lowisko</h3>
-            </div>
-            <input
-              type="text" value={newName} onChange={(e) => setNewName(e.target.value)}
-              placeholder="Nazwa lowiska"
-              className="w-full glass-card px-4 py-3 text-text-main placeholder:text-text-muted"
-            />
-            <textarea
-              value={newDesc} onChange={(e) => setNewDesc(e.target.value)}
-              placeholder="Opis (opcjonalnie)" rows={3}
-              className="w-full glass-card px-4 py-3 text-text-main placeholder:text-text-muted resize-none"
-            />
-            <div className="flex gap-3 pt-1">
-              <button
-                onClick={() => { setAddModal(null); setNewName(""); setNewDesc(""); }}
-                className="flex-1 py-3 rounded-xl border border-border-custom text-text-secondary hover:bg-surface-light transition-colors"
-              >
-                Anuluj
-              </button>
-              <button
-                onClick={saveSpot} disabled={saving}
-                className="flex-1 py-3 rounded-xl bg-primary hover:bg-primary-light text-text-main font-bold transition-all disabled:opacity-50"
-              >
-                {saving ? "Zapisywanie..." : "Zapisz"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
