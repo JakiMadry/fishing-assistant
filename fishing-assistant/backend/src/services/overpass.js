@@ -1,6 +1,11 @@
 const axios = require('axios');
 
-const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+// Multiple Overpass mirrors - fallback if main is blocked/down
+const OVERPASS_URLS = [
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+  'https://overpass-api.de/api/interpreter',
+];
 
 /**
  * Pobiera zbiorniki wodne i rzeki w promieniu `radius` metrów od podanych współrzędnych.
@@ -9,36 +14,54 @@ async function getWaterBodiesNearby(lat, lon, radiusMeters = 15000) {
   const r = Math.min(radiusMeters, 20000);
   const query = `[out:json][timeout:20];(way["natural"="water"](around:${r},${lat},${lon});way["waterway"~"river|stream|canal"](around:${r},${lat},${lon});way["leisure"="fishing"](around:${r},${lat},${lon});node["leisure"="fishing"](around:${r},${lat},${lon}););out center tags;`;
 
-  const response = await axios({
-    method: 'POST',
-    url: OVERPASS_URL,
-    data: `data=${encodeURIComponent(query)}`,
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'User-Agent': 'FishingAssistant/1.0 (https://jakbierze.pl)',
-    },
-    timeout: 25000,
-    maxRedirects: 5,
-  });
-
-  return parseOverpassResults(response.data.elements || [], lat, lon);
+  let lastErr;
+  for (const url of OVERPASS_URLS) {
+    try {
+      const response = await axios({
+        method: 'POST',
+        url,
+        data: `data=${encodeURIComponent(query)}`,
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': 'FishingAssistant/1.0 (https://jakbierze.pl)',
+        },
+        timeout: 20000,
+        maxRedirects: 5,
+      });
+      return parseOverpassResults(response.data.elements || [], lat, lon);
+    } catch (err) {
+      lastErr = err;
+      console.error(`Overpass mirror ${url} failed:`, err.message || err.code);
+    }
+  }
+  throw lastErr;
 }
 
 /**
  * Wyszukuje łowisko po nazwie przez Nominatim (OSM geocoding).
  */
 async function searchWaterByName(name) {
-  const response = await axios.get('https://nominatim.openstreetmap.org/search', {
-    params: {
-      q: name,
-      format: 'json',
-      limit: 5,
-      addressdetails: 1,
-      extratags: 1
-    },
-    headers: { 'User-Agent': 'FishingAssistant/1.0 (https://jakbierze.pl)' },
-    timeout: 10000
-  });
+  const NOMINATIM_URLS = [
+    'https://nominatim.openstreetmap.org/search',
+    'https://nominatim.geocoding.ai/search',
+  ];
+
+  let response;
+  let lastErr;
+  for (const url of NOMINATIM_URLS) {
+    try {
+      response = await axios.get(url, {
+        params: { q: name, format: 'json', limit: 5, addressdetails: 1, extratags: 1 },
+        headers: { 'User-Agent': 'FishingAssistant/1.0 (https://jakbierze.pl)' },
+        timeout: 10000
+      });
+      break;
+    } catch (err) {
+      lastErr = err;
+      console.error(`Nominatim mirror ${url} failed:`, err.message);
+    }
+  }
+  if (!response) throw lastErr;
 
   return response.data
     .filter(r => ['water', 'waterway', 'natural', 'leisure'].includes(r.class) ||
