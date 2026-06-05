@@ -140,13 +140,11 @@ router.get('/user/:id/catches', (req, res) => {
  */
 router.post('/seed', (req, res) => {
   try {
-    const existing = spotsDb.getAll();
-    if (existing.length > 0) {
-      return res.json({ message: 'Baza już zawiera łowiska', count: existing.length });
-    }
+    const before = spotsDb.getAll().length;
     require('../seed');
-    const spots = spotsDb.getAll();
-    res.json({ message: 'Dodano łowiska', count: spots.length });
+    require('../seed-kaszuby');
+    const after = spotsDb.getAll().length;
+    res.json({ message: 'Dodano łowiska', count: after, added: after - before });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
