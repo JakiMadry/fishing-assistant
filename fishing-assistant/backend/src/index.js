@@ -10,8 +10,12 @@ const advisorRouter = require('./routes/advisor');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map(s => s.trim())
+  : null;
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
+  origin: allowedOrigins || '*',
 }));
 app.use(express.json());
 
