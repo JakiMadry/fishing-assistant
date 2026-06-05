@@ -1,45 +1,46 @@
+const axios = require('axios');
+
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
 
 /**
  * Pobiera zbiorniki wodne i rzeki w promieniu `radius` metrów od podanych współrzędnych.
- * Używa OSM Overpass API – zawiera WSZYSTKIE wody w Polsce i na świecie.
  */
 async function getWaterBodiesNearby(lat, lon, radiusMeters = 15000) {
   const r = Math.min(radiusMeters, 20000);
   const query = `[out:json][timeout:20];(way["natural"="water"](around:${r},${lat},${lon});way["waterway"~"river|stream|canal"](around:${r},${lat},${lon});way["leisure"="fishing"](around:${r},${lat},${lon});node["leisure"="fishing"](around:${r},${lat},${lon}););out center tags;`;
 
-  const res = await fetch(OVERPASS_URL, {
+  const response = await axios({
     method: 'POST',
+    url: OVERPASS_URL,
+    data: `data=${encodeURIComponent(query)}`,
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
       'User-Agent': 'FishingAssistant/1.0 (https://jakbierze.pl)',
     },
-    body: `data=${encodeURIComponent(query)}`,
-    signal: AbortSignal.timeout(25000),
+    timeout: 25000,
+    maxRedirects: 5,
   });
 
-  if (!res.ok) {
-    throw new Error(`Overpass HTTP ${res.status}: ${await res.text().catch(() => '')}`);
-  }
-
-  const data = await res.json();
-  return parseOverpassResults(data.elements || [], lat, lon);
+  return parseOverpassResults(response.data.elements || [], lat, lon);
 }
 
 /**
  * Wyszukuje łowisko po nazwie przez Nominatim (OSM geocoding).
  */
 async function searchWaterByName(name) {
-  const params = new URLSearchParams({ q: name, format: 'json', limit: '5', addressdetails: '1', extratags: '1' });
-  const res = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
+  const response = await axios.get('https://nominatim.openstreetmap.org/search', {
+    params: {
+      q: name,
+      format: 'json',
+      limit: 5,
+      addressdetails: 1,
+      extratags: 1
+    },
     headers: { 'User-Agent': 'FishingAssistant/1.0 (https://jakbierze.pl)' },
-    signal: AbortSignal.timeout(10000),
+    timeout: 10000
   });
 
-  if (!res.ok) return [];
-  const results = await res.json();
-
-  return results
+  return response.data
     .filter(r => ['water', 'waterway', 'natural', 'leisure'].includes(r.class) ||
                  ['lake', 'river', 'reservoir', 'pond', 'stream'].includes(r.type))
     .map(r => ({

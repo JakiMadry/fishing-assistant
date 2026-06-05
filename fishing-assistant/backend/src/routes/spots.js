@@ -18,16 +18,19 @@ router.get('/nearby', async (req, res) => {
     const userSpots = spotsDb.getNearby(latN, lonN, parseInt(radius) / 1000);
 
     let osmSpots = [];
+    let osmError = null;
     try {
       osmSpots = await getWaterBodiesNearby(latN, lonN, parseInt(radius));
     } catch (osmErr) {
-      console.error('Overpass error (non-fatal):', osmErr.message, osmErr.response?.status);
+      osmError = osmErr.message || String(osmErr);
+      console.error('Overpass error (non-fatal):', osmError, osmErr.response?.status, osmErr.code);
     }
 
     res.json({
       osm: osmSpots,
       userAdded: userSpots.map(s => ({ ...s, source: 'community' })),
-      total: osmSpots.length + userSpots.length
+      total: osmSpots.length + userSpots.length,
+      ...(osmError && { osmError })
     });
   } catch (err) {
     console.error('spots/nearby error:', err.message || err);
