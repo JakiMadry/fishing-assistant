@@ -223,13 +223,7 @@ export default function MapView() {
         )}
       </div>
 
-      {/* Loading pill */}
-      {mapLoading && (
-        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-[1000] bg-surface-solid/95 backdrop-blur-xl rounded-full px-5 py-2.5 flex items-center gap-2 border border-glass-border shadow-xl">
-          <div className="w-3.5 h-3.5 border-2 border-primary-light border-t-transparent rounded-full animate-spin" />
-          <span className="text-text-secondary text-sm">Pobieranie lowisk z OSM...</span>
-        </div>
-      )}
+      {/* Loading pill - only on initial load */}
 
       {/* Hint */}
       <div className="absolute bottom-24 lg:bottom-4 right-3 z-[1000] bg-surface-solid/80 backdrop-blur rounded-lg px-3 py-1.5 border border-glass-border">
