@@ -21,7 +21,10 @@ async function getWaterBodiesNearby(lat, lon, radiusMeters = 15000) {
   `;
 
   const response = await axios.post(OVERPASS_URL, query, {
-    headers: { 'Content-Type': 'text/plain' },
+    headers: {
+      'Content-Type': 'text/plain',
+      'User-Agent': 'FishingAssistant/1.0 (https://jakbierze.pl)',
+    },
     timeout: 30000
   });
 
