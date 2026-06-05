@@ -35,25 +35,25 @@ export default function LocationPicker({ onSelect, onRetryGeo }: LocationPickerP
   }
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-6 animate-fade-in">
-      <div className="max-w-lg w-full space-y-6">
+    <div className="flex-1 overflow-y-auto animate-fade-in">
+      <div className="max-w-lg mx-auto w-full p-4 pt-6 pb-20 space-y-5">
         {/* Header */}
-        <div className="text-center space-y-3">
-          <div className="w-20 h-20 mx-auto rounded-2xl bg-primary/10 border border-glass-border flex items-center justify-center glow-green">
-            <span className="text-4xl">📍</span>
+        <div className="text-center space-y-2">
+          <div className="w-14 h-14 mx-auto rounded-xl bg-primary/10 border border-glass-border flex items-center justify-center">
+            <span className="text-2xl">📍</span>
           </div>
-          <h2 className="text-text-main text-2xl font-bold">Wybierz lokalizacje</h2>
-          <p className="text-text-secondary text-sm max-w-sm mx-auto">
-            Nie mamy dostepu do GPS. Wybierz miasto z listy lub wpisz wspolrzedne recznie.
+          <h2 className="text-text-main text-xl font-bold">Wybierz lokalizacje</h2>
+          <p className="text-text-secondary text-sm">
+            Nie mamy dostepu do GPS. Wybierz miasto lub wpisz wspolrzedne.
           </p>
         </div>
 
         {/* GPS retry */}
         <button
           onClick={onRetryGeo}
-          className="w-full glass-card glass-card-hover py-4 flex items-center justify-center gap-3 text-primary-light font-semibold"
+          className="w-full glass-card glass-card-hover py-3.5 flex items-center justify-center gap-2 text-primary-light font-semibold text-sm"
         >
-          <span className="text-xl">🛰️</span>
+          <span>🛰️</span>
           Sprobuj ponownie z GPS
         </button>
 
@@ -63,17 +63,17 @@ export default function LocationPicker({ onSelect, onRetryGeo }: LocationPickerP
             <div className="w-full border-t border-border-custom" />
           </div>
           <div className="relative flex justify-center">
-            <span className="bg-bg px-4 text-text-muted text-sm">lub wybierz miasto</span>
+            <span className="bg-bg px-3 text-text-muted text-xs">lub wybierz miasto</span>
           </div>
         </div>
 
         {/* Cities grid */}
-        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           {POPULAR_CITIES.map((city) => (
             <button
               key={city.name}
               onClick={() => onSelect({ lat: city.lat, lon: city.lon, name: city.name })}
-              className="glass-card glass-card-hover py-3 px-2 text-text-secondary text-sm text-center font-medium"
+              className="glass-card glass-card-hover py-2.5 px-1 text-text-secondary text-sm text-center font-medium"
             >
               {city.name}
             </button>
@@ -86,7 +86,7 @@ export default function LocationPicker({ onSelect, onRetryGeo }: LocationPickerP
             <div className="w-full border-t border-border-custom" />
           </div>
           <div className="relative flex justify-center">
-            <span className="bg-bg px-4 text-text-muted text-sm">lub podaj wspolrzedne</span>
+            <span className="bg-bg px-3 text-text-muted text-xs">lub podaj wspolrzedne</span>
           </div>
         </div>
 
@@ -96,20 +96,20 @@ export default function LocationPicker({ onSelect, onRetryGeo }: LocationPickerP
             step="any"
             value={customLat}
             onChange={(e) => setCustomLat(e.target.value)}
-            placeholder="Szerokosc (lat)"
-            className="flex-1 glass-card px-3 py-3 text-text-main placeholder:text-text-muted text-sm"
+            placeholder="Lat"
+            className="flex-1 glass-card px-3 py-2.5 text-text-main placeholder:text-text-muted text-sm min-w-0"
           />
           <input
             type="number"
             step="any"
             value={customLon}
             onChange={(e) => setCustomLon(e.target.value)}
-            placeholder="Dlugosc (lon)"
-            className="flex-1 glass-card px-3 py-3 text-text-main placeholder:text-text-muted text-sm"
+            placeholder="Lon"
+            className="flex-1 glass-card px-3 py-2.5 text-text-main placeholder:text-text-muted text-sm min-w-0"
           />
           <button
             onClick={handleCustomSubmit}
-            className="bg-primary hover:bg-primary-light text-text-main font-bold px-5 rounded-xl transition-all duration-200"
+            className="bg-primary hover:bg-primary-light text-text-main font-bold px-4 rounded-xl transition-all shrink-0"
           >
             OK
           </button>
