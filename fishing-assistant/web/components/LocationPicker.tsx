@@ -36,7 +36,7 @@ export default function LocationPicker({ onSelect, onRetryGeo }: LocationPickerP
 
   return (
     <div className="flex-1 overflow-y-auto animate-fade-in">
-      <div className="max-w-lg mx-auto w-full p-4 pt-6 pb-20 space-y-5">
+      <div className="max-w-sm mx-auto w-full px-3 pt-6 pb-20 space-y-5">
         {/* Header */}
         <div className="text-center space-y-2">
           <div className="w-14 h-14 mx-auto rounded-xl bg-primary/10 border border-glass-border flex items-center justify-center">
