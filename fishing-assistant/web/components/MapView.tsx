@@ -55,9 +55,27 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+// Simple cache to avoid re-fetching same area
+const overpassCache = new Map<string, { spots: OsmSpot[]; ts: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 min
+
+function getCacheKey(lat: number, lon: number): string {
+  // Round to ~1km grid to increase cache hits
+  return `${(lat * 10) | 0},${(lon * 10) | 0}`;
+}
+
 async function fetchOverpassSpots(lat: number, lon: number, radius: number): Promise<OsmSpot[]> {
-  const r = Math.min(radius, 20000);
-  const query = `[out:json][timeout:20];(way["natural"="water"](around:${r},${lat},${lon});way["waterway"~"river|stream|canal"](around:${r},${lat},${lon});way["leisure"="fishing"](around:${r},${lat},${lon});node["leisure"="fishing"](around:${r},${lat},${lon}););out center tags;`;
+  const key = getCacheKey(lat, lon);
+  const cached = overpassCache.get(key);
+  if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.spots;
+
+  // Use bbox instead of around - faster for Overpass
+  const degLat = radius / 111320;
+  const degLon = radius / (111320 * Math.cos((lat * Math.PI) / 180));
+  const s = lat - degLat, n = lat + degLat, w = lon - degLon, e = lon + degLon;
+  const bbox = `${s},${w},${n},${e}`;
+
+  const query = `[out:json][timeout:15];(way["natural"="water"](${bbox});way["waterway"~"river|stream|canal"](${bbox});way["leisure"="fishing"](${bbox});node["leisure"="fishing"](${bbox}););out center tags;`;
 
   const urls = [
     "https://overpass-api.de/api/interpreter",
@@ -66,17 +84,21 @@ async function fetchOverpassSpots(lat: number, lon: number, radius: number): Pro
 
   for (const url of urls) {
     try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 15000);
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: `data=${encodeURIComponent(query)}`,
+        signal: controller.signal,
       });
+      clearTimeout(timer);
       if (!res.ok) continue;
       const data = await res.json();
       const elements = data.elements || [];
 
       const seen = new Set<string>();
-      return elements
+      const spots = elements
         .filter((el: any) => {
           const name = el.tags?.name;
           if (!name || seen.has(name)) return false;
@@ -101,6 +123,9 @@ async function fetchOverpassSpots(lat: number, lon: number, radius: number): Pro
         .filter((s: OsmSpot) => s.lat && s.lng)
         .sort((a: OsmSpot, b: OsmSpot) => (a.distanceKm || 999) - (b.distanceKm || 999))
         .slice(0, 50);
+
+      overpassCache.set(key, { spots, ts: Date.now() });
+      return spots;
     } catch {
       continue;
     }
@@ -188,7 +213,7 @@ export default function MapView() {
   const loadNearbySpots = useCallback(async (lat: number, lon: number) => {
     setOsmLoading(true);
     try {
-      const spots = await fetchOverpassSpots(lat, lon, 15000);
+      const spots = await fetchOverpassSpots(lat, lon, 10000);
       setOsmSpots(spots);
       setSpotsCount(spots.length);
     } catch {
@@ -220,7 +245,7 @@ export default function MapView() {
 
   function handleMoveEnd(c: L.LatLng) {
     if (loadTimerRef.current) clearTimeout(loadTimerRef.current);
-    loadTimerRef.current = setTimeout(() => loadNearbySpots(c.lat, c.lng), 1200);
+    loadTimerRef.current = setTimeout(() => loadNearbySpots(c.lat, c.lng), 2000);
   }
 
   async function handleMarkerClick(spot: OsmSpot) {
