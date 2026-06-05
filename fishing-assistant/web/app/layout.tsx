@@ -14,8 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Asystent Wedkarski",
-  description: "Warunki, mapa lowisk, AI doradca i dziennik polowow",
+  title: "jakbierze.pl - Asystent Wedkarski",
+  description: "Warunki wedkarskie, mapa lowisk, AI doradca i dziennik polowow",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
 };
 
 export default function RootLayout({

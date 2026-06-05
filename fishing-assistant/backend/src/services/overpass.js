@@ -68,6 +68,9 @@ function parseOverpassResults(elements, userLat, userLon) {
     .filter(el => {
       const name = el.tags?.name;
       if (!name || seen.has(name)) return false;
+      // Filter out technical/coded names like ZB-05, ROW-3, etc.
+      if (/^[A-Z]{1,4}[-_]\d+/.test(name)) return false;
+      if (name.length < 3) return false;
       seen.add(name);
       return true;
     })
