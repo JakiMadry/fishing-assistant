@@ -75,8 +75,26 @@ export default function SpotsPage() {
     if (!searchQuery.trim()) return;
     setSearchLoading(true);
     try {
-      const res = await api.get(ENDPOINTS.spotsSearch, { params: { q: searchQuery } });
-      setSearchResults(res.data.results || []);
+      // Call Nominatim directly from browser to bypass Render rate limits
+      const params = new URLSearchParams({ q: searchQuery, format: "json", limit: "5", addressdetails: "1" });
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
+        headers: { "User-Agent": "FishingAssistant/1.0" },
+      });
+      if (!res.ok) { setSearchResults([]); setSearchLoading(false); return; }
+      const data = await res.json();
+      const results = data
+        .filter((r: any) =>
+          ["water", "waterway", "natural", "leisure"].includes(r.class) ||
+          ["lake", "river", "reservoir", "pond", "stream"].includes(r.type)
+        )
+        .map((r: any) => ({
+          name: r.display_name.split(",")[0],
+          fullName: r.display_name,
+          lat: parseFloat(r.lat),
+          lng: parseFloat(r.lon),
+          type: r.type || "zbiornik wodny",
+        }));
+      setSearchResults(results);
     } catch { setSearchResults([]); }
     setSearchLoading(false);
   }

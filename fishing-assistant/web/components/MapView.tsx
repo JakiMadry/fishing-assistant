@@ -24,13 +24,116 @@ function coloredIcon(color: string) {
 }
 
 function getMarkerColor(type: string): string {
-  if (type.includes("rzeka") || type.includes("strumień") || type.includes("kanał")) return "#38bdf8";
+  if (type.includes("rzeka") || type.includes("strumień") || type.includes("strumien") || type.includes("kanał") || type.includes("kanal")) return "#38bdf8";
   if (type.includes("jezioro")) return "#a78bfa";
   if (type.includes("zbiornik")) return "#3b72f2";
   if (type.includes("łowisko") || type.includes("lowisko")) return "#f0a030";
   if (type.includes("staw")) return "#67e8f9";
   return "#9ca3b0";
 }
+
+// ---- Direct OSM calls from browser (bypasses Render rate limits) ----
+
+function mapOsmType(waterway?: string, natural?: string): string {
+  if (waterway === "river") return "rzeka";
+  if (waterway === "stream") return "strumień";
+  if (waterway === "canal") return "kanał";
+  if (natural === "lake" || natural === "water") return "jezioro";
+  if (natural === "reservoir") return "zbiornik";
+  if (natural === "pond") return "staw";
+  if (natural === "fishing") return "łowisko komercyjne";
+  return "zbiornik wodny";
+}
+
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+async function fetchOverpassSpots(lat: number, lon: number, radius: number): Promise<OsmSpot[]> {
+  const r = Math.min(radius, 20000);
+  const query = `[out:json][timeout:20];(way["natural"="water"](around:${r},${lat},${lon});way["waterway"~"river|stream|canal"](around:${r},${lat},${lon});way["leisure"="fishing"](around:${r},${lat},${lon});node["leisure"="fishing"](around:${r},${lat},${lon}););out center tags;`;
+
+  const urls = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+  ];
+
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `data=${encodeURIComponent(query)}`,
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      const elements = data.elements || [];
+
+      const seen = new Set<string>();
+      return elements
+        .filter((el: any) => {
+          const name = el.tags?.name;
+          if (!name || seen.has(name)) return false;
+          if (/^[A-Z]{1,4}[-_]\d+/.test(name)) return false;
+          if (name.length < 3) return false;
+          seen.add(name);
+          return true;
+        })
+        .map((el: any) => {
+          const elLat = el.center?.lat || el.lat;
+          const elLng = el.center?.lon || el.lon;
+          const tags = el.tags || {};
+          return {
+            osmId: el.id,
+            name: tags.name || "Nieznane",
+            lat: elLat,
+            lng: elLng,
+            type: mapOsmType(tags.waterway, tags.natural || tags.leisure),
+            distanceKm: elLat && elLng ? Math.round(haversineKm(lat, lon, elLat, elLng) * 10) / 10 : null,
+          };
+        })
+        .filter((s: OsmSpot) => s.lat && s.lng)
+        .sort((a: OsmSpot, b: OsmSpot) => (a.distanceKm || 999) - (b.distanceKm || 999))
+        .slice(0, 50);
+    } catch {
+      continue;
+    }
+  }
+  return [];
+}
+
+async function searchNominatim(q: string): Promise<{ name: string; fullName: string; lat: number; lng: number; type: string }[]> {
+  const params = new URLSearchParams({ q, format: "json", limit: "5", addressdetails: "1" });
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
+      headers: { "User-Agent": "FishingAssistant/1.0" },
+    });
+    if (!res.ok) return [];
+    const results = await res.json();
+    return results
+      .filter((r: any) =>
+        ["water", "waterway", "natural", "leisure"].includes(r.class) ||
+        ["lake", "river", "reservoir", "pond", "stream"].includes(r.type)
+      )
+      .map((r: any) => ({
+        name: r.display_name.split(",")[0],
+        fullName: r.display_name,
+        lat: parseFloat(r.lat),
+        lng: parseFloat(r.lon),
+        type: mapOsmType(r.type, r.class),
+      }));
+  } catch {
+    return [];
+  }
+}
+
+// ---- Components ----
 
 interface OsmSpot {
   osmId: number;
@@ -55,9 +158,7 @@ interface SelectedSpotData extends OsmSpot {
   loading?: boolean;
 }
 
-function MapEvents({ onMoveEnd }: {
-  onMoveEnd: (center: L.LatLng) => void;
-}) {
+function MapEvents({ onMoveEnd }: { onMoveEnd: (center: L.LatLng) => void }) {
   useMapEvents({
     moveend: (e) => onMoveEnd(e.target.getCenter()),
   });
@@ -76,25 +177,24 @@ export default function MapView() {
   const [osmSpots, setOsmSpots] = useState<OsmSpot[]>([]);
   const [userSpots, setUserSpots] = useState<any[]>([]);
   const [selectedSpot, setSelectedSpot] = useState<SelectedSpotData | null>(null);
-  const [mapLoading, setMapLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchLoading, setSearchLoading] = useState(false);
   const [flyTarget, setFlyTarget] = useState<[number, number] | null>(null);
   const [center] = useState<[number, number]>([52.23, 21.01]);
   const [spotsCount, setSpotsCount] = useState(0);
+  const [osmLoading, setOsmLoading] = useState(false);
   const loadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadNearbySpots = useCallback(async (lat: number, lon: number) => {
-    setMapLoading(true);
+    setOsmLoading(true);
     try {
-      const res = await api.get(ENDPOINTS.spotsNearby, { params: { lat, lon, radius: 20000 } });
-      const spots = res.data.osm || [];
+      const spots = await fetchOverpassSpots(lat, lon, 15000);
       setOsmSpots(spots);
       setSpotsCount(spots.length);
     } catch {
       // silent
     } finally {
-      setMapLoading(false);
+      setOsmLoading(false);
     }
   }, []);
 
@@ -120,7 +220,7 @@ export default function MapView() {
 
   function handleMoveEnd(c: L.LatLng) {
     if (loadTimerRef.current) clearTimeout(loadTimerRef.current);
-    loadTimerRef.current = setTimeout(() => loadNearbySpots(c.lat, c.lng), 800);
+    loadTimerRef.current = setTimeout(() => loadNearbySpots(c.lat, c.lng), 1200);
   }
 
   async function handleMarkerClick(spot: OsmSpot) {
@@ -139,8 +239,7 @@ export default function MapView() {
     if (!searchQuery.trim()) return;
     setSearchLoading(true);
     try {
-      const res = await api.get(ENDPOINTS.spotsSearch, { params: { q: searchQuery } });
-      const results = res.data.results || [];
+      const results = await searchNominatim(searchQuery);
       if (results.length > 0) {
         const first = results[0];
         setFlyTarget([first.lat, first.lng]);
@@ -193,9 +292,13 @@ export default function MapView() {
             <span className="text-text-secondary text-xs">{item.label}</span>
           </div>
         ))}
-        {spotsCount > 0 && (
+        {(spotsCount > 0 || osmLoading) && (
           <div className="mt-2 pt-2 border-t border-border-custom">
-            <span className="text-text-muted text-[10px]">{spotsCount} lowisk widocznych</span>
+            {osmLoading ? (
+              <span className="text-text-muted text-[10px]">Ladowanie...</span>
+            ) : (
+              <span className="text-text-muted text-[10px]">{spotsCount} lowisk z OSM</span>
+            )}
           </div>
         )}
       </div>
@@ -218,9 +321,11 @@ export default function MapView() {
           >
             <Popup>
               <div style={{ color: "#f0f0f5", fontSize: 13 }}>
-                <b>{spot.name}</b><br/>
+                <b>{spot.name}</b>
+                <br />
                 <span style={{ color: "#9ca3b0", fontSize: 11 }}>
-                  {spot.type}{spot.distanceKm ? ` • ${spot.distanceKm} km` : ""}
+                  {spot.type}
+                  {spot.distanceKm ? ` • ${spot.distanceKm} km` : ""}
                 </span>
               </div>
             </Popup>
@@ -231,7 +336,8 @@ export default function MapView() {
           <Marker key={`user-${spot.id}`} position={[spot.lat, spot.lng]} icon={coloredIcon("#f0a030")}>
             <Popup>
               <div style={{ color: "#f0f0f5", fontSize: 13 }}>
-                <b>⭐ {spot.name}</b><br/>
+                <b>⭐ {spot.name}</b>
+                <br />
                 <span style={{ color: "#9ca3b0", fontSize: 11 }}>Dodane przez spolecznosc</span>
               </div>
             </Popup>
@@ -252,7 +358,9 @@ export default function MapView() {
           <div className="flex items-center gap-2 mb-3">
             <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: getMarkerColor(selectedSpot.type) }} />
             <span className="text-text-secondary text-sm">{selectedSpot.type}</span>
-            {selectedSpot.distanceKm && <span className="text-text-muted text-xs">• {selectedSpot.distanceKm} km</span>}
+            {selectedSpot.distanceKm && (
+              <span className="text-text-muted text-xs">• {selectedSpot.distanceKm} km</span>
+            )}
           </div>
 
           {selectedSpot.loading ? (
@@ -294,7 +402,6 @@ export default function MapView() {
           )}
         </div>
       )}
-
     </div>
   );
 }
