@@ -1,5 +1,3 @@
-const axios = require('axios');
-
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
 
 /**
@@ -7,38 +5,41 @@ const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
  * Używa OSM Overpass API – zawiera WSZYSTKIE wody w Polsce i na świecie.
  */
 async function getWaterBodiesNearby(lat, lon, radiusMeters = 15000) {
-  // Limit radius to avoid Overpass timeouts on low-memory servers
   const r = Math.min(radiusMeters, 20000);
   const query = `[out:json][timeout:20];(way["natural"="water"](around:${r},${lat},${lon});way["waterway"~"river|stream|canal"](around:${r},${lat},${lon});way["leisure"="fishing"](around:${r},${lat},${lon});node["leisure"="fishing"](around:${r},${lat},${lon}););out center tags;`;
 
-  const response = await axios.post(OVERPASS_URL, `data=${encodeURIComponent(query)}`, {
+  const res = await fetch(OVERPASS_URL, {
+    method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
       'User-Agent': 'FishingAssistant/1.0 (https://jakbierze.pl)',
     },
-    timeout: 30000
+    body: `data=${encodeURIComponent(query)}`,
+    signal: AbortSignal.timeout(25000),
   });
 
-  return parseOverpassResults(response.data.elements, lat, lon);
+  if (!res.ok) {
+    throw new Error(`Overpass HTTP ${res.status}: ${await res.text().catch(() => '')}`);
+  }
+
+  const data = await res.json();
+  return parseOverpassResults(data.elements || [], lat, lon);
 }
 
 /**
  * Wyszukuje łowisko po nazwie przez Nominatim (OSM geocoding).
  */
 async function searchWaterByName(name) {
-  const response = await axios.get('https://nominatim.openstreetmap.org/search', {
-    params: {
-      q: name,
-      format: 'json',
-      limit: 5,
-      addressdetails: 1,
-      extratags: 1
-    },
-    headers: { 'User-Agent': 'FishingAssistant/1.0' },
-    timeout: 10000
+  const params = new URLSearchParams({ q: name, format: 'json', limit: '5', addressdetails: '1', extratags: '1' });
+  const res = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
+    headers: { 'User-Agent': 'FishingAssistant/1.0 (https://jakbierze.pl)' },
+    signal: AbortSignal.timeout(10000),
   });
 
-  return response.data
+  if (!res.ok) return [];
+  const results = await res.json();
+
+  return results
     .filter(r => ['water', 'waterway', 'natural', 'leisure'].includes(r.class) ||
                  ['lake', 'river', 'reservoir', 'pond', 'stream'].includes(r.type))
     .map(r => ({
@@ -59,7 +60,6 @@ function parseOverpassResults(elements, userLat, userLon) {
     .filter(el => {
       const name = el.tags?.name;
       if (!name || seen.has(name)) return false;
-      // Filter out technical/coded names like ZB-05, ROW-3, etc.
       if (/^[A-Z]{1,4}[-_]\d+/.test(name)) return false;
       if (name.length < 3) return false;
       seen.add(name);
@@ -90,7 +90,7 @@ function parseOverpassResults(elements, userLat, userLon) {
     })
     .filter(s => s.lat && s.lng)
     .sort((a, b) => (a.distanceKm || 999) - (b.distanceKm || 999))
-    .slice(0, 50); // max 50 wyników
+    .slice(0, 50);
 }
 
 function mapOsmTypeToFishing(waterway, natural) {

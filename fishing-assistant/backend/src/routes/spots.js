@@ -15,10 +15,14 @@ router.get('/nearby', async (req, res) => {
     const latN = parseFloat(lat);
     const lonN = parseFloat(lon);
 
-    const [osmSpots, userSpots] = await Promise.all([
-      getWaterBodiesNearby(latN, lonN, parseInt(radius)),
-      Promise.resolve(spotsDb.getNearby(latN, lonN, parseInt(radius) / 1000))
-    ]);
+    const userSpots = spotsDb.getNearby(latN, lonN, parseInt(radius) / 1000);
+
+    let osmSpots = [];
+    try {
+      osmSpots = await getWaterBodiesNearby(latN, lonN, parseInt(radius));
+    } catch (osmErr) {
+      console.error('Overpass error (non-fatal):', osmErr.message, osmErr.response?.status);
+    }
 
     res.json({
       osm: osmSpots,
@@ -26,7 +30,7 @@ router.get('/nearby', async (req, res) => {
       total: osmSpots.length + userSpots.length
     });
   } catch (err) {
-    console.error('spots/nearby error:', err.message || err, err.response?.status, err.response?.data?.toString?.()?.slice(0, 200));
+    console.error('spots/nearby error:', err.message || err);
     res.status(500).json({ error: 'Błąd pobierania łowisk', detail: err.message || String(err) });
   }
 });
