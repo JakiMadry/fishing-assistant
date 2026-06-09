@@ -5,7 +5,7 @@ import api, { ENDPOINTS } from "@/lib/api";
 import { scoreColor, getUserLocation } from "@/lib/utils";
 import LocationPicker from "@/components/LocationPicker";
 
-interface ConditionsData {
+interface DayData {
   weather: {
     temperature: number;
     feelsLike: number;
@@ -33,6 +33,10 @@ interface ConditionsData {
   };
 }
 
+interface ConditionsData extends DayData {
+  forecast?: Array<{ day: number; date: string; weather: DayData["weather"]; moon: DayData["moon"]; fishing: DayData["fishing"] }>;
+}
+
 function getDayLabels(): { label: string; short: string; day: number }[] {
   const days = ["Niedz", "Pon", "Wt", "Sr", "Czw", "Pt", "Sob"];
   const result = [];
@@ -56,14 +60,25 @@ export default function ConditionsPage() {
   const [locationName, setLocationName] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState(0);
   const [userLoc, setUserLoc] = useState<{ lat: number; lon: number } | null>(null);
+  const [forecastLoading, setForecastLoading] = useState(false);
 
-  const fetchConditions = useCallback(async (lat: number, lon: number, day = 0) => {
+  const fetchConditions = useCallback(async (lat: number, lon: number) => {
     setLoading(true);
     setError(null);
     setNeedsLocation(false);
     try {
-      const res = await api.get(ENDPOINTS.conditions, { params: { lat, lon, day } });
+      // Fast: fetch today only
+      const res = await api.get(ENDPOINTS.conditions, { params: { lat, lon } });
       setData(res.data);
+
+      // Lazy: fetch forecast in background
+      setForecastLoading(true);
+      api.get(ENDPOINTS.conditions + "/forecast", { params: { lat, lon } })
+        .then(fRes => {
+          setData(prev => prev ? { ...prev, forecast: fRes.data.forecast } : prev);
+        })
+        .catch(() => {})
+        .finally(() => setForecastLoading(false));
     } catch {
       setError("Nie mozna pobrac warunkow. Sprawdz czy backend dziala.");
     } finally {
@@ -77,7 +92,7 @@ export default function ConditionsPage() {
     if (loc) {
       setUserLoc(loc);
       setLocationName("Twoja lokalizacja");
-      fetchConditions(loc.lat, loc.lon, 0);
+      fetchConditions(loc.lat, loc.lon);
     } else {
       setLoading(false);
       setNeedsLocation(true);
@@ -90,7 +105,6 @@ export default function ConditionsPage() {
 
   function handleDayChange(day: number) {
     setSelectedDay(day);
-    if (userLoc) fetchConditions(userLoc.lat, userLoc.lon, day);
   }
 
   if (needsLocation) {
@@ -100,7 +114,7 @@ export default function ConditionsPage() {
           setUserLoc({ lat: loc.lat, lon: loc.lon });
           setLocationName(loc.name);
           setSelectedDay(0);
-          fetchConditions(loc.lat, loc.lon, 0);
+          fetchConditions(loc.lat, loc.lon);
         }}
         onRetryGeo={tryGeoLocation}
       />
@@ -138,7 +152,11 @@ export default function ConditionsPage() {
     );
   }
 
-  const { weather, moon, fishing } = data;
+  // Pick today or forecast day data
+  const dayData = selectedDay === 0
+    ? { weather: data.weather, moon: data.moon, fishing: data.fishing }
+    : data.forecast?.find(f => f.day === selectedDay) || { weather: data.weather, moon: data.moon, fishing: data.fishing };
+  const { weather, moon, fishing } = dayData;
   const scorePercent = fishing.overall / 100;
 
   return (
@@ -160,20 +178,28 @@ export default function ConditionsPage() {
 
         {/* Day tabs */}
         <div className="flex gap-1.5 overflow-x-auto pb-1">
-          {getDayLabels().map((d) => (
-            <button
-              key={d.day}
-              onClick={() => handleDayChange(d.day)}
-              className={`shrink-0 px-3.5 py-2 rounded-xl text-sm font-medium transition-all ${
-                selectedDay === d.day
-                  ? "bg-primary text-text-main shadow-lg shadow-primary-glow"
-                  : "bg-surface-light text-text-secondary hover:bg-surface-hover"
-              }`}
-            >
-              <span className="block">{d.label}</span>
-              <span className="block text-[10px] opacity-70">{d.short}</span>
-            </button>
-          ))}
+          {getDayLabels().map((d) => {
+            const hasForecast = d.day === 0 || data.forecast?.some(f => f.day === d.day);
+            return (
+              <button
+                key={d.day}
+                onClick={() => handleDayChange(d.day)}
+                disabled={d.day > 0 && !hasForecast && forecastLoading}
+                className={`shrink-0 px-3.5 py-2 rounded-xl text-sm font-medium transition-all ${
+                  selectedDay === d.day
+                    ? "bg-primary text-text-main shadow-lg shadow-primary-glow"
+                    : d.day > 0 && !hasForecast
+                    ? "bg-surface-light text-text-muted opacity-50"
+                    : "bg-surface-light text-text-secondary hover:bg-surface-hover"
+                }`}
+              >
+                <span className="block">{d.label}</span>
+                <span className="block text-[10px] opacity-70">
+                  {d.day > 0 && forecastLoading && !hasForecast ? "..." : d.short}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Hero score card */}

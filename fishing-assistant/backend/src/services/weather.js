@@ -37,56 +37,59 @@ async function getCurrentWeather(lat, lon) {
 }
 
 /**
- * Pobiera prognozę na konkretny dzień (offset 0=dziś, 1=jutro, 2=pojutrze itd.)
- * Uśrednia wartości z prognoz 3h na dany dzień.
+ * Pobiera pełną prognozę 5-dniową i dzieli na dni.
+ * Zwraca obiekt { 0: weatherDay0, 1: weatherDay1, ... 4: weatherDay4 }
+ * Jedno zapytanie do OpenWeather = szybko.
  */
-async function getForecastForDay(lat, lon, dayOffset = 0) {
+async function getFullForecast(lat, lon) {
   const key = process.env.OPENWEATHER_API_KEY;
   const forecast = await axios.get(`${BASE_URL}/forecast`, {
     params: { lat, lon, appid: key, units: 'metric', lang: 'pl', cnt: 40 }
   });
 
-  const now = new Date();
-  const targetDate = new Date(now);
-  targetDate.setDate(targetDate.getDate() + dayOffset);
-  const targetDay = targetDate.toISOString().slice(0, 10); // YYYY-MM-DD
-
-  const dayForecasts = forecast.data.list.filter(f => {
-    const d = new Date(f.dt * 1000).toISOString().slice(0, 10);
-    return d === targetDay;
-  });
-
-  if (dayForecasts.length === 0) {
-    // Fallback: take first available entries
-    return getCurrentWeather(lat, lon);
+  const byDay = {};
+  for (const f of forecast.data.list) {
+    const dateStr = new Date(f.dt * 1000).toISOString().slice(0, 10);
+    if (!byDay[dateStr]) byDay[dateStr] = [];
+    byDay[dateStr].push(f);
   }
 
-  // Average/aggregate day values
-  const temps = dayForecasts.map(f => f.main.temp);
-  const pressures = dayForecasts.map(f => f.main.pressure);
-  const winds = dayForecasts.map(f => f.wind.speed * 3.6);
-  const humidities = dayForecasts.map(f => f.main.humidity);
-  const clouds = dayForecasts.map(f => f.clouds.all);
+  const result = {};
+  const dates = Object.keys(byDay).sort();
+  const today = new Date().toISOString().slice(0, 10);
+
+  for (let i = 0; i < dates.length && i < 5; i++) {
+    const dateStr = dates[i];
+    const dayForecasts = byDay[dateStr];
+    // Calculate offset from today
+    const offset = Math.round((new Date(dateStr) - new Date(today)) / 86400000);
+    if (offset < 0 || offset > 4) continue;
+    result[offset] = aggregateDay(dayForecasts, forecast.data.list);
+  }
+
+  return result;
+}
+
+function aggregateDay(dayForecasts, allForecasts) {
   const avg = arr => Math.round(arr.reduce((a, b) => a + b, 0) / arr.length);
 
-  // Pick midday description or first available
   const midday = dayForecasts.find(f => {
     const h = new Date(f.dt * 1000).getHours();
     return h >= 11 && h <= 14;
   }) || dayForecasts[Math.floor(dayForecasts.length / 2)];
 
   return {
-    temperature: avg(temps),
+    temperature: avg(dayForecasts.map(f => f.main.temp)),
     feelsLike: avg(dayForecasts.map(f => f.main.feels_like)),
-    pressure: avg(pressures),
-    humidity: avg(humidities),
-    windSpeed: avg(winds),
+    pressure: avg(dayForecasts.map(f => f.main.pressure)),
+    humidity: avg(dayForecasts.map(f => f.main.humidity)),
+    windSpeed: avg(dayForecasts.map(f => f.wind.speed * 3.6)),
     windDeg: midday.wind.deg,
-    cloudiness: avg(clouds),
+    cloudiness: avg(dayForecasts.map(f => f.clouds.all)),
     description: midday.weather[0].description,
     icon: midday.weather[0].icon,
     visibility: midday.visibility || 10000,
-    pressureTrend: getPressureTrend(dayForecasts.length >= 3 ? dayForecasts : forecast.data.list),
+    pressureTrend: getPressureTrend(dayForecasts.length >= 3 ? dayForecasts : allForecasts),
     forecast3h: dayForecasts.slice(0, 4).map(f => ({
       time: new Date(f.dt * 1000).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }),
       temp: Math.round(f.main.temp),
@@ -107,4 +110,4 @@ function getPressureTrend(forecastList) {
   return 'stabilne';
 }
 
-module.exports = { getCurrentWeather, getForecastForDay };
+module.exports = { getCurrentWeather, getFullForecast };
